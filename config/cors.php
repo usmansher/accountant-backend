@@ -19,7 +19,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [env('FRONTEND_URL', 'http://localhost:3000', 'https://accountant-frontend-l1ivl03az-usmanshers-projects.vercel.app')],
+    'allowed_origins' => [env('FRONTEND_URL', 'http://localhost:3000'), 'https://accountant-frontend-l1ivl03az-usmanshers-projects.vercel.app'],
 
     'allowed_origins_patterns' => [],
 

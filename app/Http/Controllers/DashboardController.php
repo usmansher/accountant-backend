@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AccountingHelper;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Ledger;
 use App\Models\Account;
 use App\Models\User;
 use App\Models\Entry;
+use App\Services\AccountTreeService;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use PgSql\Lob;
 
 class DashboardController extends Controller
 {
@@ -132,30 +136,68 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get Total Monthly
-     * @param int $type - 3 for Income, 4 for Expense
+     * Build the tree structure recursively.
      */
-    private function getTotalMonthly($type)
+    public function buildTree(array $elements, $parentId = 0)
     {
-        // Fetch monthly totals for the past 12 months
+        $branch = [];
+        foreach ($elements as $element) {
+            if ($element->parent_id == $parentId) {
+                $children = $this->buildTree($elements, $element->id);
+                if ($children) {
+                    $branch = array_merge($branch, $children);
+                }
+                $branch[] = $element->id;
+            }
+        }
+        return $branch;
+    }
+
+   /**
+     * Get total monthly for a specific group ID ($type).
+     *
+     * @param int $type - ID of the main group
+     * @return array
+     */
+    public function getTotalMonthly($type)
+    {
+        // Get the current year
         $currentYear = Carbon::now()->year;
 
-        $monthlyTotals = \App\Models\Entry::select(DB::raw('MONTH(date) as month'), DB::raw('SUM(dr_total) as dr_total'), DB::raw('SUM(cr_total) as cr_total'))
-            ->whereYear('date', $currentYear)
-            ->whereHas('entryType', function ($query) use ($type) {
-                $query->where('id', $type);
-            })
-            ->groupBy('month')
-            ->orderBy('month', 'asc')
+        // Fetch all groups
+        $groups = DB::table('groups')->get();
+
+        // Build the tree structure to get all descendant group IDs
+        $groupIds = $this->buildTree($groups->toArray(), $type);
+
+        // Fetch all ledger IDs under these groups
+        $ledgerIds = DB::table('ledgers')
+            ->whereIn('group_id', $groupIds)
+            ->pluck('id')
+            ->toArray();
+
+        // Fetch monthly totals for the past 12 months for the specified group and its ledgers
+        $monthlyTotals = DB::table('entry_items')
+            ->join('entries', 'entry_items.entry_id', '=', 'entries.id')
+            ->select(
+                DB::raw('MONTH(entries.date) as month'),
+                DB::raw('SUM(CASE WHEN entry_items.dc = "D" THEN entry_items.amount ELSE 0 END) as total_debit'),
+                DB::raw('SUM(CASE WHEN entry_items.dc = "C" THEN entry_items.amount ELSE 0 END) as total_credit')
+            )
+            ->whereYear('entries.date', $currentYear)
+            ->whereIn('entry_items.ledger_id', $ledgerIds)
+            ->groupBy(DB::raw('MONTH(entries.date)'))
+            ->orderBy(DB::raw('MONTH(entries.date)'))
             ->get()
             ->keyBy('month');
 
+        // Prepare totals for all 12 months
         $totals = [];
         for ($i = 1; $i <= 12; $i++) {
             if (isset($monthlyTotals[$i])) {
-                $dr = $monthlyTotals[$i]->dr_total ?? 0;
-                $cr = $monthlyTotals[$i]->cr_total ?? 0;
-                $totals[] = $dr - $cr;
+                $totalDebit = $monthlyTotals[$i]->total_debit;
+                $totalCredit = $monthlyTotals[$i]->total_credit;
+                $totals[] = $totalDebit - $totalCredit;
             } else {
                 $totals[] = 0;
             }
@@ -168,17 +210,15 @@ class DashboardController extends Controller
      * Get Total Periodical
      * @param int $type - 3 for Income, 4 for Expense
      */
-    private function getTotalPeriodical($type)
+    private function getTotalPeriodical($type, $only_opening = false, $startDate = null, $endDate = null)
     {
-        // Implement based on your periodical logic
-        // Placeholder example: Total Income or Expense
-        return \App\Models\Entry::whereHas('entryType', function ($query) use ($type) {
-                $query->where('id', $type);
-            })
-            ->sum('dr_total') - \App\Models\Entry::whereHas('entryType', function ($query) use ($type) {
-                $query->where('id', $type);
-            })
-            ->sum('cr_total');
+        $accountService = new AccountTreeService($only_opening, $startDate, $endDate, -1);
+        $liabilities = $accountService->getAccountTree($type); // group id 2 for Liabilities
+        $liabilities_total = $liabilities['cl_total_dc'] == 'C'
+            ? $liabilities['cl_total']
+            : AccountingHelper::convertToPositive($liabilities['cl_total']);
+
+        return $liabilities_total;
     }
 
     /**
@@ -241,6 +281,9 @@ class DashboardController extends Controller
         $total_income = array_sum($incomeData);
         $total_expense = array_sum($expenseData);
 
+        Log::info('Total Income: ' . $total_income);
+        Log::info('Total Expense: ' . $total_expense);
+
         // Calculate Net Worth
         $net_worth = $total_income - $total_expense;
 
@@ -275,10 +318,14 @@ class DashboardController extends Controller
      */
     public function getIncomeExpenseChart()
     {
+        $assets = $this->getTotalPeriodical(1); // 3 represents Income
+        $liabilities = $this->getTotalPeriodical(2); // 3 represents Income
         $income = $this->getTotalPeriodical(3); // 3 represents Income
         $expense = $this->getTotalPeriodical(4); // 4 represents Expense
 
         $json_ie_stats = [
+            'Assets'  => $assets,
+            'Liabilities' => $liabilities,
             'Income'  => $income,
             'Expense' => $expense,
         ];

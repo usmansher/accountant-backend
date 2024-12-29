@@ -7,6 +7,7 @@ use App\Models\Ledger;
 use App\Services\AccountTreeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ReportController extends Controller
 {
@@ -115,6 +116,10 @@ class ReportController extends Controller
         // Gross Expenses
         $grossExpensesService = new AccountTreeService($only_opening, $startDate, $endDate, 1);
         $gross_expenses = $grossExpensesService->getAccountTree(4); // 4 for Expenses group
+
+        Log ::info('Gross Expenses: ' , [
+            'gross_expenses' => $gross_expenses
+        ]);
         $gross_expense_total = ($gross_expenses['cl_total_dc'] === 'D')
             ? $gross_expenses['cl_total']
             : AccountingHelper::convertToPositive($gross_expenses['cl_total']);

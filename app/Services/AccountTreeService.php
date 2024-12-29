@@ -47,7 +47,9 @@ class AccountTreeService
         ];
 
         // Add sub ledgers if applicable
-        if ($this->affectsGross != 1) {
+        if ($this->affectsGross == 1) {
+
+        } else {
             $this->addSubLedgers($tree, $group);
         }
 
@@ -67,9 +69,17 @@ class AccountTreeService
             $query->whereNull('parent_id');
         }
 
-        if ($this->affectsGross == 0 || $this->affectsGross == 1) {
-            $query->where('affects_gross', $this->affectsGross);
+
+        if ($this->affectsGross == 0) {
+            $query->where('groups.affects_gross', 0);
         }
+        if ($this->affectsGross == 1) {
+            $query->where('groups.affects_gross', 1);
+        }
+        /* Reset is since its no longer needed below 1st level of sub-groups */
+        $this->affectsGross = -1;
+
+
 
         $childGroups = $query->orderBy('name')->get();
 

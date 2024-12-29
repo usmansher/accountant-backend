@@ -54,6 +54,11 @@ class ReportController extends Controller
 
         // Opening difference
         $opdiff = $this->getOpeningDiff(); // Implement this method as per your logic
+
+        Log::info('Balance Sheet: ', [
+            'opdiff' => $opdiff
+        ]);
+
         $is_opdiff = !AccountingHelper::compare($opdiff['opdiff_balance'], 0, '==');
 
         // Adjust final totals
@@ -94,15 +99,44 @@ class ReportController extends Controller
         ]);
     }
 
-    protected function getOpeningDiff()
-    {
-        // Implement your logic to fetch opening difference here.
-        // Return array with 'opdiff_balance', 'opdiff_balance_dc'
-        return [
-            'opdiff_balance' => 0,
-            'opdiff_balance_dc' => 'D'
-        ];
-    }
+
+
+	/* Calculate difference in opening balance */
+	public function getOpeningDiff() {
+		$total_op = 0;
+		$ledgers = Ledger::get();
+		foreach ($ledgers as $ledger) {
+			if ($ledger->op_balance_dc == 'D') {
+				$total_op = AccountingHelper::calculate($total_op, $ledger->op_balance, '+');
+			} else {
+				$total_op = AccountingHelper::calculate($total_op, $ledger->op_balance, '-');
+			}
+		}
+		/* Dr is more ==> $total_op >= 0 ==> balancing figure is Cr */
+		if (AccountingHelper::calculate($total_op, 0, '>=')) {
+            return [
+                'opdiff_balance' => $total_op,
+                'opdiff_balance_dc' => 'C'
+            ];
+		} else {
+            return [
+                'opdiff_balance' => AccountingHelper::calculate($total_op, 0, 'n'),
+                'opdiff_balance_dc' => 'D'
+            ];
+		}
+	}
+
+
+
+    // protected function getOpeningDiff()
+    // {
+    //     // Implement your logic to fetch opening difference here.
+    //     // Return array with 'opdiff_balance', 'opdiff_balance_dc'
+    //     return [
+    //         'opdiff_balance' => 0,
+    //         'opdiff_balance_dc' => 'D'
+    //     ];
+    // }
 
     public function profitLoss(Request $request)
     {

@@ -55,8 +55,8 @@ class AccountingHelper
      */
 
     public static function calculate($value1, $value2, $operator)
-
     {
+        $decimal = 2;
         switch ($operator) {
             case '+':
                 return $value1 + $value2;
@@ -66,6 +66,18 @@ class AccountingHelper
                 return $value1 * $value2;
             case '/':
                 return $value1 / $value2;
+            case '%':
+                return $value1 % $value2;
+            case 'n':
+                return bcmul($value1, -1, $decimal);
+            case '>=':
+                $temp = bccomp($value1, $value2, $decimal);
+                if ($temp == 1 || $temp == 0) {
+                    return TRUE;
+                } else {
+                    return FALSE;
+                }
+                break;
             default:
                 return 0;
         }

@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Jobs;
 
 use Illuminate\Bus\Queueable;
@@ -27,7 +28,6 @@ class ProcessEntryImport implements ShouldQueue
     {
         $this->entriesData = $entriesData;
     }
-
     /**
      * Execute the job.
      *
@@ -39,44 +39,65 @@ class ProcessEntryImport implements ShouldQueue
 
         try {
             foreach ($this->entriesData as $entryRow) {
-                // Prepare entry data
-                $entryData = [
-                    'id' => $entryRow['id'] ?? Uuid::uuid4()->toString(),
-                    'tag_id' => $entryRow['tag_id'] ?? null,
-                    'entrytype_id' => $entryRow['entrytype_id'],
-                    'number' => $entryRow['number'] ?? null,
-                    'date' => $entryRow['date'],
-                    'dr_total' => $entryRow['dr_total'] ?? 0.00,
-                    'cr_total' => $entryRow['cr_total'] ?? 0.00,
-                    'narration' => $entryRow['narration'] ?? null,
-                    'created_at' => $entryRow['created_at'] ?? now(),
-                    'updated_at' => $entryRow['updated_at'] ?? now(),
-                ];
 
-                // Create the entry
+                $entryType = \App\Models\EntryType::where('label', $entryRow['entry_type_id'])->first();
+                if (!$entryType) {
+                    throw new \Exception("Entry Type not found for label: {$entryRow['entry_type_id']}");
+                }
+
+                $tag = \App\Models\Tag::where('title', $entryRow['tag_id'])->first();
+
+                // For each entry, gather fields from your new JSON structure:
+                $entryData = [
+                    'id' => Uuid::uuid4()->toString(),
+                    'tag_id' =>  $tag ? $tag->id : null,
+                    'entrytype_id' => $entryType->id,
+                    'number' => $entryRow['entry_number'] ?? null,
+                    'date' => $entryRow['entry_date'], // e.g. "2025-01-05"
+                    'narration' => $entryRow['entry_narration'] ?? null,
+                ];
+                // Create the entry (no dr_total, cr_total in new JSON)
                 $entry = Entry::create($entryData);
 
-                // Handle entry_items
-                foreach ($entryRow['entry_items'] as $itemRow) {
-                    $entryItemData = [
-                        'id' => $itemRow['id'] ?? Uuid::uuid4()->toString(),
-                        'entry_id' => $entry->id,
-                        'ledger_id' => $itemRow['ledger_id'],
-                        'amount' => $itemRow['amount'],
-                        'narration' => $itemRow['narration'] ?? null,
-                        'dc' => $itemRow['dc'],
-                        'reconciliation_date' => $itemRow['reconciliation_date'] ?? null,
-                        'created_at' => $itemRow['created_at'] ?? now(),
-                        'updated_at' => $itemRow['updated_at'] ?? now(),
-                    ];
+                $dr_total = 0;
+                $cr_total = 0;
+                // Now create the related items
+                if (!empty($entryRow['items'])) {
+                    foreach ($entryRow['items'] as $itemRow) {
+                        $ledger = \App\Models\Ledger::where('code', $itemRow['ledger_code'])->first();
+                        if (!$ledger) {
+                            // Optionally skip or throw an exception if ledger not found
+                            throw new \Exception("Ledger not found for code: {$itemRow['ledger_code']}");
+                        }
 
-                    // Create the entry item
-                    EntryItem::create($entryItemData);
+                        $entryItemData = [
+                            'id' => Uuid::uuid4()->toString(),
+                            'entry_id' => $entry->id,
+                            'ledger_id' => $ledger->id,
+                            'amount' => $itemRow['amount'],
+                            'narration' => $itemRow['item_narration'] ?? null,
+                            'dc' => $itemRow['dc'],
+                            'reconciliation_date' => $itemRow['item_reconciliation_date'] ?? null,
+                        ];
+
+                        $entryItemData['ledger_id'] = $ledger->id;
+                        EntryItem::create($entryItemData);
+
+                        if ($itemRow['dc'] == 'D') {
+                            $dr_total += $itemRow['amount'];
+                        } else {
+                            $cr_total += $itemRow['amount'];
+                        }
+                    }
                 }
+
+                $entry->update([
+                    'dr_total' => $dr_total,
+                    'cr_total' => $cr_total,
+                ]);
             }
 
             DB::commit();
-
             Log::info('Entries and Entry Items imported successfully via queue.');
         } catch (\Exception $e) {
             DB::rollBack();

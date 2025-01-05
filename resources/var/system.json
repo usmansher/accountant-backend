@@ -68,6 +68,7 @@
         "reports-balance-sheet",
         "reports-profit-loss",
         "reports-reconciliation",
+        "reports-activity-log",
 
         "list-user",
         "create-user",

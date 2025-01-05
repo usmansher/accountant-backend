@@ -29,4 +29,18 @@ class Tag extends Base
         return LogOptions::defaults();
     }
 
+
+    /**
+     * This method is called by the Spatie package before saving the activity.
+     */
+    public function tapActivity(Activity $activity, string $eventName)
+    {
+        // If a user is logged in, associate them as the causer
+        if (request()->user()) {
+            $activity->causer_type = User::class;
+            $activity->causer_id   = request()->user()->id;
+        }
+
+    }
+
 }

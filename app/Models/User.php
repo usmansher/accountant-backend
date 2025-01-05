@@ -10,12 +10,13 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Ramsey\Uuid\Uuid;
 use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\CausesActivity;
 use Spatie\Permission\Traits\HasRoles;
 use Stancl\Tenancy\Database\Concerns\CentralConnection;
 
 class User extends Authenticatable
 {
-    use CentralConnection, HasFactory, Notifiable, ActivityTrait, HasRoles;
+    use CentralConnection, HasFactory, Notifiable, ActivityTrait, HasRoles, CausesActivity;
     // protected $keyType = 'string';
     // public $incrementing = false;
     protected $guard_name = 'api';
@@ -72,6 +73,19 @@ class User extends Authenticatable
         return LogOptions::defaults();
     }
 
+
+
+    /**
+     * This method is called by the Spatie package before saving the activity.
+     */
+    public function tapActivity(Activity $activity, string $eventName)
+    {
+        // If a user is logged in, associate them as the causer
+        if (request()->user()) {
+            $activity->causer_type = User::class;
+            $activity->causer_id   = request()->user()->id;
+        }
+    }
 
     public function getRoleNameAttribute()
     {

@@ -2,7 +2,7 @@
 
 namespace App\Traits;
 
-use Spatie\Activitylog\Models\Activity as ModelsActivity;
+use App\Models\Activity;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 trait ActivityTrait
@@ -18,7 +18,7 @@ trait ActivityTrait
         return static::getLogNameToUse() . " has been {$event}";
     }
 
-    public function tapActivity(ModelsActivity $activity)
+    public function tapActivity(Activity $activity)
     {
         $user = auth()->user()->id ?? null;
         $activity->causer()->associate($user);

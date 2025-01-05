@@ -12,6 +12,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\Tenant\AccountController;
 use Illuminate\Support\Facades\Route;
+use Spatie\Activitylog\Models\Activity;
 
 /*
 |--------------------------------------------------------------------------
@@ -59,5 +60,12 @@ Route::middleware([
 
         Route::get('/ledger-list', [LedgerController::class, 'ledgerList']);
 
+
+        Route::get('/activity-logs', function () {
+            // Basic retrieval (can add pagination, filters, etc.)
+            $logs = Activity::latest()->with('causer')->take(50)->get();
+
+            return response()->json($logs);
+        });
     });
 });

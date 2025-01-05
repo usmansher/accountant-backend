@@ -30,6 +30,86 @@
         "50",
         "100"
     ],
+    "permissions": [
+        "list-account",
+        "create-account",
+        "edit-account",
+        "delete-account",
+        "view-chart-of-accounts",
+
+        "list-entries",
+        "edit-entries",
+        "delete-entries",
+        "create-entries",
+        "import-entries",
+
+        "list-ledgers",
+        "edit-ledgers",
+        "delete-ledgers",
+        "create-ledgers",
+
+        "list-groups",
+        "edit-groups",
+        "delete-groups",
+        "create-groups",
+
+        "list-entry-types",
+        "edit-entry-types",
+        "delete-entry-types",
+        "create-entry-types",
+
+
+        "list-tags",
+        "edit-tags",
+        "delete-tags",
+        "create-tags",
+
+        "reports-trial-balance",
+        "reports-balance-sheet",
+        "reports-profit-loss",
+        "reports-reconciliation",
+
+        "list-user",
+        "create-user",
+        "edit-user",
+        "delete-user",
+        "list-roles",
+        "create-roles",
+        "edit-roles",
+        "delete-roles",
+        "assign-permissions"
+    ],
+    "accountant_permissions": [
+        "list-account",
+        "view-chart-of-accounts",
+
+        "list-entries",
+        "edit-entries",
+        "delete-entries",
+        "create-entries",
+        "import-entries",
+
+        "list-ledgers",
+        "edit-ledgers",
+        "delete-ledgers",
+        "create-ledgers",
+
+        "list-groups",
+        "edit-groups",
+        "delete-groups",
+        "create-groups",
+
+        "list-tags",
+        "edit-tags",
+        "delete-tags",
+        "create-tags",
+
+        "reports-trial-balance",
+        "reports-balance-sheet",
+        "reports-profit-loss",
+        "reports-reconciliation"
+
+    ],
     "default_permission": [
         {
             "name": "enable-login",

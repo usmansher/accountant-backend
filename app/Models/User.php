@@ -10,12 +10,15 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Ramsey\Uuid\Uuid;
 use Spatie\Activitylog\LogOptions;
+use Spatie\Permission\Traits\HasRoles;
+use Stancl\Tenancy\Database\Concerns\CentralConnection;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, ActivityTrait;
+    use CentralConnection, HasFactory, Notifiable, ActivityTrait, HasRoles;
     // protected $keyType = 'string';
     // public $incrementing = false;
+    protected $guard_name = 'api';
 
     /**
      * The attributes that are mass assignable.
@@ -37,6 +40,8 @@ class User extends Authenticatable
         'password',
         'remember_token',
     ];
+
+    protected $appends = ['role_name'];
 
     /**
      * Get the attributes that should be cast.
@@ -67,4 +72,9 @@ class User extends Authenticatable
         return LogOptions::defaults();
     }
 
+
+    public function getRoleNameAttribute()
+    {
+        return $this->roles->first()->name ?? 'No Role';
+    }
 }
